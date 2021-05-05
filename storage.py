@@ -20,4 +20,4 @@ class MongoStorage:
         return data
 
     def update_flag(self, link):
-        self.collection.update_one({'_id': link['id']}, {'$set': {'flag': True}})
+        self.collection.update_one({'_id': link['_id']}, {'$set': {'flag': True}})

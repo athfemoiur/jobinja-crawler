@@ -97,7 +97,7 @@ class LinkCrawl(BaseCrawl):
 
 class DataCrawl(BaseCrawl):
     def __init__(self):
-        self.mongodb_load = MongoStorage("dav_links")
+        self.mongodb_load = MongoStorage("adv_links")
         self.mongodb_store = MongoStorage("adv_data")
         self.parser = Parser()
         self.links = self.mongodb_load.load({'flag': False})
@@ -111,9 +111,9 @@ class DataCrawl(BaseCrawl):
     def crawl(self, queue):
         while queue.qsize():
             link = queue.get()
-            html = self.get(link["url"], header=HEADER).text
+            html = self.get(link["link"], header=HEADER).text
             self.store(self.parser.parse_all_data(html))
-            self.mongodb_store.update_flag(link)
+            self.mongodb_load.update_flag(link)
             queue.task_done()
 
     def start(self):

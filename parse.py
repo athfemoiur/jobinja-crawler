@@ -6,8 +6,18 @@ class Parser:
     def parse_all_data(self, html_doc):
         soup = BeautifulSoup(html_doc, 'html.parser')
 
-        return {**self.parse_tags(soup), **self.parse_description(soup), **self.parse_company_desc(soup),
+        return {**self.parse_title(soup), **self.parse_tags(soup), **self.parse_description(soup),
+                **self.parse_company_desc(soup),
                 **self.parse_days_remaining(soup)}
+
+    @staticmethod
+    def parse_title(soup):
+        data = soup.find('div', {'class': 'c-jobView__titleText'})
+        if data is not None:
+            data = data.string
+
+        key = "عنوان"
+        return {key: data}
 
     @staticmethod
     def parse_tags(soup):
@@ -25,23 +35,31 @@ class Parser:
     @staticmethod
     def parse_description(soup):
         data = ""
-        for string in soup.find('div', {'class': 'o-box__text s-jobDesc'}).stripped_strings:
-            data += string
+        tag = soup.find('div', {'class': 's-jobDesc'})
+        if tag is not None:
+            for string in tag.stripped_strings:
+                data += string
         key = "موقعیت شغلی"
         return {key: data}
 
     @staticmethod
     def parse_company_desc(soup):
         data = ""
-        for string in soup.select_one(
-                '#singleJob > div > div:nth-child(1) > div.col-md-8.col-sm-12.js-fixedWidgetSide > section > '
-                'div:nth-child(6)').stripped_strings:
-            data += string
+        tag = soup.select_one(
+            '#singleJob > div > div:nth-child(1) > div.col-md-8.col-sm-12.js-fixedWidgetSide > section > '
+            'div:nth-child(6)')
+        if tag is not None:
+            for string in tag.stripped_strings:
+                data += string
         key = "معرفی شرکت"
         return {key: data}
 
     @staticmethod
     def parse_days_remaining(soup):
-        data = soup.select_one('#apply-form > section > div.c-boxWidget__content > p').string.replace("\n", "")
+        data = ""
+        tag = soup.find('p', {'class': 'u-textCenter'})
+        if tag is not None:
+            for string in tag.stripped_strings:
+                data += string
         key = "فرصت ارسال رزومه"
         return {key: data}
