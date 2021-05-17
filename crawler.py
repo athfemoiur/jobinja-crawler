@@ -27,7 +27,7 @@ class BaseCrawl(ABC):
         pass
 
     @abstractmethod
-    def store(self, data):
+    def store(self, *args):
         pass
 
     @staticmethod
@@ -37,6 +37,7 @@ class BaseCrawl(ABC):
         except requests.HTTPError:
             print('unable to get response and there is no status code')
             return None
+        print(response.status_code)
         return response
 
 
@@ -44,7 +45,7 @@ class LinkCrawl(BaseCrawl):
     def __init__(self):
         self.base_url = BASE_URL
         self.city = CITY
-        self.mongodb = MongoStorage('adv_links')
+        self.storage = MongoStorage('adv_links')
 
     def select_city(self):
         chrome_options = Options()
@@ -92,15 +93,15 @@ class LinkCrawl(BaseCrawl):
             t.join()
 
     def store(self, data):
-        self.mongodb.store(data)
+        self.storage.store(data)
 
 
 class DataCrawl(BaseCrawl):
     def __init__(self):
         self.mongodb_load = MongoStorage("adv_links")
         self.mongodb_store = MongoStorage("adv_data")
-        self.parser = Parser()
         self.links = self.mongodb_load.load({'flag': False})
+        self.parser = Parser()
 
     def create_queue(self):
         queue = Queue()
@@ -111,15 +112,18 @@ class DataCrawl(BaseCrawl):
     def crawl(self, queue):
         while queue.qsize():
             link = queue.get()
-            html = self.get(link["link"], header=HEADER).text
-            self.store(self.parser.parse_all_data(html))
-            self.mongodb_load.update_flag(link)
+            url = link["link"]
+            response = self.get(url, header=HEADER)
+            if response.status_code == 200:
+                data = {**{"لینک آگهی": url}, **self.parser.parse_all_data(response.text)}
+                self.store(data)
+                self.mongodb_load.update_flag(link)
             queue.task_done()
 
     def start(self):
         threads = list()
         queue = self.create_queue()
-        for _ in range(7):
+        for _ in range(8):
             thread = Thread(target=self.crawl, args=(queue,))
             threads.append(thread)
             thread.start()

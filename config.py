@@ -5,3 +5,5 @@ HEADER = {
                   'Safari/537.36'}
 
 CITY = 'تهران'
+
+DATA_BASE = "mongo"  # choices are mongo and mysql
