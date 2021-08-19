@@ -2,4 +2,4 @@
 
 *.pyc
 
-mysql/mysql_config.py
+mysql_config.py
