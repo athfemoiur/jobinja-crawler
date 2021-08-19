@@ -1,3 +1,5 @@
 .idea/*
 
 *.pyc
+
+mysql/mysql_config.py

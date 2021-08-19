@@ -1,22 +1,14 @@
 from time import sleep
-
 import requests
-
 from abc import ABC, abstractmethod
-
 from bs4 import BeautifulSoup
-
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import Select
-
-from config import BASE_URL, HEADER, CITY
-
+from config import BASE_URL, HEADER, CITY, DATA_BASE
 from threading import Thread
 from queue import Queue
-
-from storage import MongoStorage
-
+from storage import MongoStorage, MysqlStorage
 from parse import Parser
 
 
@@ -27,13 +19,13 @@ class BaseCrawl(ABC):
         pass
 
     @abstractmethod
-    def store(self, *args):
+    def crawl(self):
         pass
 
     @staticmethod
-    def get(url, header=None):
+    def get(url, header=None, proxy=None):
         try:
-            response = requests.get(url, headers=header)
+            response = requests.get(url, headers=header, proxies=proxy)
         except requests.HTTPError:
             print('unable to get response and there is no status code')
             return None
@@ -45,9 +37,13 @@ class LinkCrawl(BaseCrawl):
     def __init__(self):
         self.base_url = BASE_URL
         self.city = CITY
-        self.storage = MongoStorage('adv_links')
+        self.storage = MongoStorage('adv_links') if DATA_BASE == 'mongo' else MysqlStorage
+        self.queue = self.create_queue()
 
-    def select_city(self):
+    def get_city_url(self):
+        #  this method uses selenium for selecting the city and return the url
+        #  you can change the city from config.py file
+
         chrome_options = Options()
         chrome_options.add_argument("--window-size=1920,1080")
         driver = webdriver.Chrome(chrome_options=chrome_options)
@@ -68,39 +64,38 @@ class LinkCrawl(BaseCrawl):
         return [lnk.get('href') for lnk in soup.find_all('a', attrs={'class': 'c-jobListView__titleLink'})]
 
     def create_queue(self):
-        url = self.select_city() + "&page={}"
+        url = self.get_city_url() + "&page={}"
         queue = Queue()
         for i in range(1, 21):
             queue.put(url.format(i))
         return queue
 
-    def crawl(self, queue):
-        while queue.qsize():
-            url = queue.get()
+    def crawl(self):
+        while True:
+            #  using python queue and multithreading
+            url = self.queue.get()
             links = self.get_links(self.get(url, header=HEADER).text)
             links_dicts = [{"link": lnk, "flag": False} for lnk in links]
             self.store(links_dicts)
-            queue.task_done()
+            self.queue.task_done()
+            if self.queue.empty():
+                break
 
     def start(self):
-        threads = list()
-        queue = self.create_queue()
+        #  multithreading
         for _ in range(6):
-            thread = Thread(target=self.crawl, args=(queue,))
-            threads.append(thread)
+            thread = Thread(target=self.crawl)
             thread.start()
-        for t in threads:
-            t.join()
+        self.queue.join()
 
     def store(self, data):
         self.storage.store(data)
 
 
-class DataCrawl(BaseCrawl):
+class BaseDataCrawl(BaseCrawl, ABC):
     def __init__(self):
-        self.mongodb_load = MongoStorage("adv_links")
-        self.mongodb_store = MongoStorage("adv_data")
-        self.links = self.mongodb_load.load({'flag': False})
+        self.links = None
+        self.queue = None
         self.parser = Parser()
 
     def create_queue(self):
@@ -109,26 +104,55 @@ class DataCrawl(BaseCrawl):
             queue.put(link)
         return queue
 
-    def crawl(self, queue):
-        while queue.qsize():
-            link = queue.get()
+    def start(self):
+        for _ in range(10):
+            thread = Thread(target=self.crawl)
+            thread.start()
+        self.queue.join()
+
+
+class MongoDataCrawl(BaseDataCrawl):
+    def __init__(self):
+        super().__init__()
+        self.mongodb_load = MongoStorage('adv_links')
+        self.links = self.mongodb_load.load({'flag': False})
+        self.mongodb_store = MongoStorage("adv_data")
+        self.queue = self.create_queue()
+
+    def crawl(self):
+        while True:
+            link = self.queue.get()
             url = link["link"]
             response = self.get(url, header=HEADER)
             if response.status_code == 200:
-                data = {**{"لینک آگهی": url}, **self.parser.parse_all_data(response.text)}
+                data = {**{"Advertisement Link": url}, **self.parser.parse_all_data(response.text)}
                 self.store(data)
                 self.mongodb_load.update_flag(link)
-            queue.task_done()
-
-    def start(self):
-        threads = list()
-        queue = self.create_queue()
-        for _ in range(8):
-            thread = Thread(target=self.crawl, args=(queue,))
-            threads.append(thread)
-            thread.start()
-        for t in threads:
-            t.join()
+            self.queue.task_done()
+            if self.queue.empty():
+                break
 
     def store(self, data):
         self.mongodb_store.store(data)
+
+
+class MysqlDataCrawler(BaseDataCrawl):
+
+    def __init__(self):
+        super().__init__()
+        self.storage = MysqlStorage()
+        self.links = self.storage.load_links()
+        self.queue = self.create_queue()
+
+    def crawl(self):
+        while True:
+            link = self.queue.get()
+            url = link.url
+            response = self.get(url, header=HEADER)
+            data = self.parser.parse_all_data(response.text)
+            if response.status_code == 200:
+                self.storage.store_data(link, data)
+                self.storage.update_flag(link)
+            self.queue.task_done()
+            if self.queue.empty():
+                break

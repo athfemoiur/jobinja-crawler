@@ -19,10 +19,10 @@ class Company(BaseModel):
 
 
 class Advertisement(BaseModel):
-    link = ForeignKeyField(Link, backref="advertisement")
+    link = ForeignKeyField(Link, backref="advertisement")  # implements one to one relation
     title = CharField(null=True)
     description = TextField()
-    company = ForeignKeyField(Company, backref="company")  # implements one to one relation
+    company = ForeignKeyField(Company, backref="advertisements")
     remaining_days = CharField()
 
 

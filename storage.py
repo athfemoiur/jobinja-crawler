@@ -22,12 +22,13 @@ class MongoStorage:
         return data
 
     def update_flag(self, link):
+        #  flag is used for not crawling a link more than one time
         self.collection.update_one({'_id': link['_id']}, {'$set': {'flag': True}})
 
 
 class MysqlStorage:
     @staticmethod
-    def store_link(links):
+    def store(links):
         """
         :param links: links is a list of dictionaries
         """
@@ -38,12 +39,23 @@ class MysqlStorage:
     def store_data(link, data):
         """
         :param data: data is a python dict
-        :param link: link is a peewee object
+        :param link: link is a peewee model object
         """
-        company = Company.get_or_create(name=data["نام شرکت"], description=data["معرفی شرکت"])
-        adv = Advertisement.create(link=link, title=data["عنوان"], description=data["موقعیت شغلی"], company=company[0],
-                                   remaining_days=data["فرصت ارسال رزومه"])
+        company = Company.get_or_create(name=data["Company name"], description=data["Company description"])
+        company = company[0]
+        adv = Advertisement.create(link=link, title=data["Title"], description=data["Description"], company=company,
+                                   remaining_days=data["Remaining days"])
+
+        for key, value in list(data.items())[5:]:
+            if isinstance(value, list):
+                value = ",".join(value)
+            Tag.create(key=key, value=value, advertisement=adv)
 
     @staticmethod
     def load_links():
-        return Link.select().where(Link.flag == 0)
+        return Link.select().where(Link.flag == False)
+
+    @staticmethod
+    def update_flag(link):
+        link.flag = False
+        link.save()

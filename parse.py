@@ -6,30 +6,22 @@ class Parser:
     def parse_all_data(self, html_doc):
         soup = BeautifulSoup(html_doc, 'html.parser')
 
-        return {**self.parse_title(soup), **self.parse_description(soup), **self.parse_company_name(soup),
-                **self.parse_company_desc(soup), **self.parse_days_remaining(soup), **self.parse_tags(soup)
-                }
+        adv_data = {
+            'Title': self.parse_title(soup),
+            'Description': self.parse_description(soup),
+            'Company name': self.parse_company_name(soup),
+            'Company description': self.parse_description(soup),
+            'Remaining days': self.parse_days_remaining(soup),
+        }
+
+        adv_data.update(self.parse_tags(soup))
+        return adv_data
 
     @staticmethod
     def parse_title(soup):
         data = soup.find('div', {'class': 'c-jobView__titleText'})
         if data is not None:
             data = data.string
-
-        key = "عنوان"
-        return {key: data}
-
-    @staticmethod
-    def parse_tags(soup):
-        data = dict()
-
-        key_tags = [h4.text for h4 in soup.find_all('h4', {'class': 'c-infoBox__itemTitle'})]
-        value_tags = soup.find_all('div', {'class': 'tags'})
-
-        for key, value in zip(key_tags, value_tags):
-            contents = list(value.stripped_strings)
-            data[key] = contents[0].replace("\n", "") if len(contents) == 1 else [content for content in contents]
-
         return data
 
     @staticmethod
@@ -39,8 +31,7 @@ class Parser:
         if tag is not None:
             for string in tag.stripped_strings:
                 data += string
-        key = "موقعیت شغلی"
-        return {key: data}
+        return data
 
     @staticmethod
     def parse_company_name(soup):
@@ -49,8 +40,7 @@ class Parser:
         if tag is not None:
             for string in tag.stripped_strings:
                 data += string
-        key = "نام شرکت"
-        return {key: data}
+        return data
 
     @staticmethod
     def parse_company_desc(soup):
@@ -61,8 +51,7 @@ class Parser:
         if tag is not None:
             for string in tag.stripped_strings:
                 data += string
-        key = "معرفی شرکت"
-        return {key: data}
+        return data
 
     @staticmethod
     def parse_days_remaining(soup):
@@ -71,5 +60,18 @@ class Parser:
         if tag is not None:
             for string in tag.stripped_strings:
                 data += string
-        key = "فرصت ارسال رزومه"
-        return {key: data}
+        return data
+
+    @staticmethod
+    def parse_tags(soup):
+        # returns a dict of tags(length is unknown)
+        data = dict()
+
+        key_tags = [h4.text for h4 in soup.find_all('h4', {'class': 'c-infoBox__itemTitle'})]
+        value_tags = soup.find_all('div', {'class': 'tags'})
+
+        for key, value in zip(key_tags, value_tags):
+            contents = list(value.stripped_strings)
+            data[key] = contents[0].replace("\n", "") if len(contents) == 1 else [content for content in contents]
+
+        return data
