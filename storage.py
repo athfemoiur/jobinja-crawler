@@ -57,5 +57,5 @@ class MysqlStorage:
 
     @staticmethod
     def update_flag(link):
-        link.flag = False
+        link.flag = True
         link.save()

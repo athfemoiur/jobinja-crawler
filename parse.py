@@ -10,7 +10,7 @@ class Parser:
             'Title': self.parse_title(soup),
             'Description': self.parse_description(soup),
             'Company name': self.parse_company_name(soup),
-            'Company description': self.parse_description(soup),
+            'Company description': self.parse_company_desc(soup),
             'Remaining days': self.parse_days_remaining(soup),
         }
 
