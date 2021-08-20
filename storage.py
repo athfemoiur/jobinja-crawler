@@ -33,7 +33,7 @@ class MysqlStorage:
         :param links: links is a list of dictionaries
         """
         for link in links:
-            Link.create(url=link["link"], flag=False)
+            Link.get_or_create(url=link["link"])
 
     @staticmethod
     def store_data(link, data):

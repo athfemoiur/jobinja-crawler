@@ -9,8 +9,8 @@ class BaseModel(Model):
 
 
 class Link(BaseModel):
-    url = TextField()
-    flag = BooleanField()
+    url = TextField(unique=True)
+    flag = BooleanField(default=False)
 
 
 class Company(BaseModel):
